@@ -14,9 +14,28 @@ def clean_text(text):
 # Função para classificar o texto
 def classify_text(text):
     cleaned_text = text.lower()
-    label = ["produtivo", "improdutivo"]
-    result = classifier(cleaned_text, candidate_labels=label)
-    return result['labels'][0]
+    productive_labels = [
+        "solicitações de suporte técnico",
+        "pedido de atualização sobre um caso em aberto",
+        "dúvidas sobre o sistema",
+        "email que requer uma ação ou resposta específica"
+    ]
+    
+    unproductive_labels = [
+        "mensagens de felicitações",
+        "agradecimentos",
+        "conversa casual que não necessita de ação",
+        "email informativo que não precisa de resposta"
+    ]
+
+    all_labels = productive_labels + unproductive_labels
+
+    result = classifier(cleaned_text, candidate_labels=all_labels)
+    label = result['labels'][0]
+    if label in productive_labels:
+        return 'produtivo'
+    elif label in unproductive_labels:
+        return 'improdutivo'
 
 # Função para gerar resposta com base na classificação
 def generate_response(category):
