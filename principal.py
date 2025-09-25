@@ -1,7 +1,7 @@
 from transformers import pipeline
 import re
 # Carrega o modelo pré-treinado para classificação zero-shot
-classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+classifier = pipeline("zero-shot-classification", model="Moritz/distilbert-base-mnli")
 
 # Função para limpar o texto
 def clean_text(text):
