@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisador de Emails</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* Definindo variáveis de cor */
+        :root {
+            --primary-color: #0056b3;
+            --primary-hover: #004494;
+            --background-color: #f0f2f5;
+            --container-bg: #ffffff;
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+
+        body {
+            /* Usando a fonte importada*/
+            font-family: 'Poppins', sans-serif;
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+        
+        /* container principal para o conteúdo */
+        .main-container {
+            background-color: var(--container-bg);
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        p {
+            line-height: 1.6;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 15px;
+            font-family: 'Poppins', sans-serif;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+        
+        #drop-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            cursor: pointer;
+            transition: border-color 0.3s ease, background-color 0.3s ease;
+            margin-top: 15px;
+            display: flex;             
+            flex-direction: column;    
+            align-items: center;     
+            justify-content: center;
+        }
+        #drop-area.drag-over {
+            border-color: var(--primary-color);
+            background-color: #f0f8ff;
+        }
+        .drop-area-content svg {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        .drop-area-content p {
+            margin: 0;
+            font-size: 16px;
+            color: #6c757d;
+        }
+        .drop-area-content p strong {
+            color: var(--text-color);
+        }
+        #file-name {
+            display: block;
+            margin-top: 10px;
+            font-size: 14px;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+        input[type="file"] {
+            display: none; /* O input real continua escondido */
+        }
+
+        #loader {
+            text-align: center;
+            margin-top: 20px;
+            display: none;
+        }
+
+        #results {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            display: none; 
+        }
+        
+        #results.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #results h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+        #response-text {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            border: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Analisador de Emails</h1>
+    <p>Cole o conteúdo de um email abaixo para classificá-lo como "Produtivo" ou "Improdutivo" </p>
+
+    <form id="email-form">
+        <textarea id="email-input" placeholder="Digite ou cole o texto do email aqui..."></textarea>
+        
+        <p style="text-align:center; color:#6c757d; margin-top:20px;">— OU —</p>
+        <label for="file-input" id="drop-area">
+            <div class="drop-area-content">
+                <p><strong>Arraste e solte o arquivo aqui</strong><br>ou clique para selecionar</p>
+                <span id="file-name">Nenhum arquivo escolhido</span>
+            </div>
+            <input type="file" id="file-input" name="file" accept=".txt,.pdf">
+        </label>
+
+        <button type="submit" id="submit-button">Analisar Email</button>
+    </form>
+
+    <div id="loader">
+        <p><strong>Processando...</strong> Por favor, aguarde. Isso pode levar alguns segundos.</p>
+    </div>
+
+    <div id="results">
+        <h2>Resultado da Análise</h2>
+        <p><strong>Categoria:</strong> <span id="category-text"></span></p>
+        <p><strong>Resposta Sugerida:</strong></p>
+        <p id="response-text"></p>
+    </div>
+
+    <script>
+        const form = document.getElementById('email-form');
+        const emailInput = document.getElementById('email-input');
+        const fileInput = document.getElementById('file-input');
+        const dropArea = document.getElementById('drop-area');
+        const fileNameDisplay = document.getElementById('file-name');
+        const submitButton = document.getElementById('submit-button');
+        const loader = document.getElementById('loader');
+        const resultsDiv = document.getElementById('results');
+        const categoryText = document.getElementById('category-text');
+        const responseText = document.getElementById('response-text');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Adiciona o efeito visual ao arrastar o arquivo sobre a área
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => dropArea.classList.add('drag-over'), false);
+        });
+
+        // Remove o efeito visual ao tirar o arquivo de cima da área
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => dropArea.classList.remove('drag-over'), false);
+        });
+
+        // Pega os arquivos que foram soltos na área
+        dropArea.addEventListener('drop', handleDrop, false);
+        function handleDrop(e) {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            fileInput.files = files; // Coloca o arquivo solto no input escondido
+            updateFileName(); // Atualiza o nome do arquivo
+        }
+        
+        //Mostra o nome do arquivo
+        fileInput.addEventListener('change', updateFileName);
+        function updateFileName() {
+            if (fileInput.files.length > 0) {
+                fileNameDisplay.textContent = fileInput.files[0].name;
+            } else {
+                fileNameDisplay.textContent = 'Nenhum arquivo escolhido';
+            }
+        }
+
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('email_text', emailInput.value);
+            if (fileInput.files.length > 0) {
+                formData.append('file', fileInput.files[0]);
+            }
+
+            if (emailInput.value.trim() === "" && fileInput.files.length === 0) {
+                alert("Por favor, insira um texto ou selecione um arquivo.");
+                return;
+            }
+
+            submitButton.disabled = true;
+            submitButton.innerText = 'Analisando...';
+            loader.style.display = 'block';
+            resultsDiv.style.display = 'none'; // Garante que está escondido
+            resultsDiv.classList.remove('visible'); // Remove a classe de visibilidade
+
+            try {
+                const response = await fetch('/processar', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Erro no servidor.');
+
+                categoryText.innerText = data.category;
+                responseText.innerText = data.response;
+                
+                //Lógica para a animação de aparecimento
+                resultsDiv.style.display = 'block';
+                setTimeout(() => { 
+                    resultsDiv.classList.add('visible');
+                }, 10);
+                
+
+            } catch (error) {
+                console.error("Ocorreu um erro:", error);
+                alert("Não foi possível processar a solicitação: " + error.message);
+            } finally {
+                loader.style.display = 'none';
+                submitButton.disabled = false;
+                submitButton.innerText = 'Analisar Email';
+                form.reset();
+                fileNameDisplay.textContent = 'Nenhum arquivo escolhido'; 
+            }
+        });
+    </script>
+</body>
+</html>
