@@ -1,7 +1,13 @@
-from transformers import pipeline
 import re
-# Carrega o modelo pré-treinado para classificação zero-shot
-classifier = pipeline("zero-shot-classification", model="valhalla/distilbart-mnli-12-3")
+import os
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+api_url = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"
+HF_TOKEN = os.getenv('HF_TOKEN')
+headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 # Função para limpar o texto
 def clean_text(text):
@@ -13,29 +19,53 @@ def clean_text(text):
 
 # Função para classificar o texto
 def classify_text(text):
-    cleaned_text = text.lower()
+
+    all_label = [
+        "solicitações de suporte técnico",
+        "pedido de atualização sobre um caso em aberto",
+        "dúvidas sobre o sistema",
+        "relatório de um problema ou erro",
+        "pedido de informação sobre um produto",
+        "mensagens de felicitações",
+        "agradecimentos",
+        "conversa casual que não necessita de ação",
+        "email puramente informativo que não precisa de resposta"
+    ]
     productive_labels = [
         "solicitações de suporte técnico",
         "pedido de atualização sobre um caso em aberto",
         "dúvidas sobre o sistema",
-        "email que requer uma ação ou resposta específica"
-    ]
-    
-    unproductive_labels = [
-        "mensagens de felicitações",
-        "agradecimentos",
-        "conversa casual que não necessita de ação",
-        "email informativo que não precisa de resposta"
+        "relatório de um problema ou erro",
+        "pedido de informação sobre um produto"
     ]
 
-    all_labels = productive_labels + unproductive_labels
 
-    result = classifier(cleaned_text, candidate_labels=all_labels)
-    label = result['labels'][0]
-    if label in productive_labels:
-        return 'produtivo'
-    elif label in unproductive_labels:
-        return 'improdutivo'
+    payload = {
+        "inputs": text,
+        "parameters": {"candidate_labels": all_label},
+        "options": {"wait_for_model": True}
+    }
+    try:
+        response = requests.post(api_url, headers=headers, json=payload)
+
+        if response.status_code != 200:
+            print(f"Erro na api {response.text}")
+            return "indefinido"
+        
+        result = response.json()
+        # Pega o label com a maior pontuação
+        label = result['labels'][0]
+        score = result['scores'][0]
+
+        
+        if label in productive_labels and score > 0.47:
+            return 'produtivo'
+        else:
+            return 'improdutivo'
+        
+    except requests.exceptions.RequestException as e:
+        print(f"erro de conexão com a api {e}")
+        return "indefinido"
 
 # Função para gerar resposta com base na classificação
 def generate_response(category):
@@ -45,5 +75,6 @@ def generate_response(category):
         return "Agradecemos o contato e sua mensagem. Tenha um ótimo dia!"
     else:
         return "Não foi possível determinar uma resposta apropriada."
+
 
 
